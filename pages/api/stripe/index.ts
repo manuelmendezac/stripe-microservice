@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       currency: moneda,
     };
     if (tipo_pago === 'suscripcion') {
-      priceData.recurring = { interval: (periodicidad || 'month') as 'day' | 'week' | 'month' | 'year' };
+      priceData.recurring = { interval: (periodicidad || 'month') as Stripe.PriceCreateParams.Recurring.Interval };
     }
     const price = await stripe.prices.create(priceData);
 
@@ -67,16 +67,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error en Stripe API:', error);
-    if (error instanceof Error && (error as any).type === 'StripeCardError') {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'type' in error &&
+      (error as { type?: string }).type === 'StripeCardError'
+    ) {
       return res.status(400).json({ error: 'Error en la tarjeta de crédito' });
-    } else if (error instanceof Error && (error as any).type === 'StripeInvalidRequestError') {
+    } else if (
+      typeof error === 'object' &&
+      error !== null &&
+      'type' in error &&
+      (error as { type?: string }).type === 'StripeInvalidRequestError'
+    ) {
       return res.status(400).json({ error: 'Datos de pago inválidos' });
-    } else if (error instanceof Error && (error as any).type === 'StripeAPIError') {
+    } else if (
+      typeof error === 'object' &&
+      error !== null &&
+      'type' in error &&
+      (error as { type?: string }).type === 'StripeAPIError'
+    ) {
       return res.status(500).json({ error: 'Error en el servidor de Stripe' });
     }
     return res.status(500).json({ 
       error: 'Error interno del servidor',
-      details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 } 
