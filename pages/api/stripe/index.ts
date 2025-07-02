@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-05-28.basil',
+  apiVersion: '2025-06-30.basil',
 });
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -47,13 +47,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // 2. Crear precio en Stripe
-    const priceData: any = {
+    const priceData: Stripe.PriceCreateParams = {
       product: producto.id,
       unit_amount: Math.round(precio * 100),
       currency: moneda,
     };
     if (tipo_pago === 'suscripcion') {
-      priceData.recurring = { interval: periodicidad || 'month' };
+      priceData.recurring = { interval: (periodicidad || 'month') as 'day' | 'week' | 'month' | 'year' };
     }
     const price = await stripe.prices.create(priceData);
 
@@ -65,18 +65,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       precio_centavos: price.unit_amount,
       moneda: price.currency,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en Stripe API:', error);
-    if (error.type === 'StripeCardError') {
+    if (error instanceof Error && (error as any).type === 'StripeCardError') {
       return res.status(400).json({ error: 'Error en la tarjeta de crédito' });
-    } else if (error.type === 'StripeInvalidRequestError') {
+    } else if (error instanceof Error && (error as any).type === 'StripeInvalidRequestError') {
       return res.status(400).json({ error: 'Datos de pago inválidos' });
-    } else if (error.type === 'StripeAPIError') {
+    } else if (error instanceof Error && (error as any).type === 'StripeAPIError') {
       return res.status(500).json({ error: 'Error en el servidor de Stripe' });
     }
     return res.status(500).json({ 
       error: 'Error interno del servidor',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
     });
   }
 } 
