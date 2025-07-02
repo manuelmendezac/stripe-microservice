@@ -1,9 +1,10 @@
 import Stripe from 'stripe';
 import { buffer } from 'micro';
 import { createClient } from '@supabase/supabase-js';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-05-28.basil',
+  apiVersion: '2025-06-30.basil',
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -17,7 +18,7 @@ export const config = {
   },
 };
 
-export default async function handler(req, res) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
@@ -30,16 +31,19 @@ export default async function handler(req, res) {
   try {
     event = stripe.webhooks.constructEvent(buf, sig, endpointSecret!);
   } catch (err) {
-    console.error('Error en webhook:', err.message);
-    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+    if (err instanceof Error) {
+      console.error('Error en webhook:', err.message);
+      return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+    }
+    return res.status(400).json({ error: 'Webhook Error desconocido' });
   }
 
   if (event.type === 'checkout.session.completed' || event.type === 'invoice.payment_succeeded') {
     const session = event.data.object;
-    const customerEmail = session.customer_email || session.customer_details?.email;
-    const stripe_price_id = session.metadata?.stripe_price_id || session.metadata?.price_id || session.display_items?.[0]?.price?.id;
-    const tipo_producto = session.metadata?.tipo_producto;
-    const producto_id = session.metadata?.producto_id;
+    const customerEmail = (session as any).customer_email || (session as any).customer_details?.email;
+    const stripe_price_id = (session as any).metadata?.stripe_price_id || (session as any).metadata?.price_id || (session as any).display_items?.[0]?.price?.id;
+    const tipo_producto = (session as any).metadata?.tipo_producto;
+    const producto_id = (session as any).metadata?.producto_id;
 
     if (!customerEmail || !stripe_price_id || !tipo_producto || !producto_id) {
       console.error('Faltan datos clave en el webhook:', { customerEmail, stripe_price_id, tipo_producto, producto_id });

@@ -1,10 +1,11 @@
 import Stripe from 'stripe';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-05-28.basil',
+  apiVersion: '2025-06-30.basil',
 });
 
-export default async function handler(req, res) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
@@ -63,14 +64,17 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error en suscripción:', error);
-    
-    if (error.type === 'StripeInvalidRequestError') {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'type' in error &&
+      (error as { type?: string }).type === 'StripeInvalidRequestError'
+    ) {
       return res.status(400).json({ error: 'Datos de suscripción inválidos' });
     }
-    
     return res.status(500).json({ 
       error: 'Error al crear sesión de suscripción',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 } 
