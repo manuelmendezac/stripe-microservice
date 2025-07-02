@@ -39,11 +39,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (event.type === 'checkout.session.completed' || event.type === 'invoice.payment_succeeded') {
-    const session = event.data.object;
-    const customerEmail = (session as any).customer_email || (session as any).customer_details?.email;
-    const stripe_price_id = (session as any).metadata?.stripe_price_id || (session as any).metadata?.price_id || (session as any).display_items?.[0]?.price?.id;
-    const tipo_producto = (session as any).metadata?.tipo_producto;
-    const producto_id = (session as any).metadata?.producto_id;
+    const session = event.data.object as Stripe.Checkout.Session;
+    const metadata = session.metadata || {};
+    const customerEmail = session.customer_email || (metadata['customer_email'] ?? undefined);
+    const stripe_price_id = metadata['stripe_price_id'] || metadata['price_id'] || undefined;
+    const tipo_producto = metadata['tipo_producto'] || undefined;
+    const producto_id = metadata['producto_id'] || undefined;
 
     if (!customerEmail || !stripe_price_id || !tipo_producto || !producto_id) {
       console.error('Faltan datos clave en el webhook:', { customerEmail, stripe_price_id, tipo_producto, producto_id });
