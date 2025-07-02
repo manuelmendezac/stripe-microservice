@@ -82,6 +82,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     console.log(`Membresía activada para usuario ${customerEmail} (${usuario.id}) en producto ${producto_id} (${tipo_producto})`);
+
+    // 3. Registrar la venta en la tabla ventas
+    const { error: ventaError } = await supabase
+      .from('ventas')
+      .insert([{
+        usuario_id: usuario.id,
+        producto_id,
+        tipo_producto,
+        monto: session.amount_total ? session.amount_total / 100 : null,
+        moneda: session.currency ? session.currency.toUpperCase() : 'USD',
+        estado: 'confirmada',
+        metodo_pago: 'stripe',
+        referencia_externa: session.id,
+        fecha: new Date().toISOString(),
+        metadata: session.metadata ? session.metadata : {},
+        comunidad_id: session.metadata?.comunidad_id || null,
+        afiliado_id: session.metadata?.afiliado_id || null
+      }]);
+    if (ventaError) {
+      console.error('Error insertando venta:', ventaError);
+      // No retornes error al webhook, solo loguea
+    }
   }
 
   res.status(200).json({ received: true });
